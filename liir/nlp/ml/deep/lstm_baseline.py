@@ -18,6 +18,15 @@ import liir.nlp.preprocessing as P
 
 
 def create_input_data(data_x, data_y, x_dict, y_dict, maxlen):
+    """
+    Creates data to be fed into neural network
+    :param data_x: sentences in list form, like [['he', 'is', 'jolly'],['she',...]]
+    :param data_y: tags corresponding to data_y
+    :param x_dict: dictionary that maps words to indices (integers)
+    :param y_dict: dictionary that maps tags to indices (integers)
+    :param maxlen: maximum length of a sentence so we know how much padding to use
+    :return: x, y that can be fed to the embedding layer of an LSTM
+    """
     X_train = []
     Y_train = []
     for n, sent in enumerate(data_x):
@@ -59,10 +68,13 @@ def run_training(trainfile, testfile, epochs,
                  maxlen=100,
                  vocab_dim=10,
                  batch_size=32):
+
+    print("============Training Params============")
     print('Training file: {}\nTesting file: {}\nEpochs: {}\n'
           'Max length of sentence: {}\nWord embedding dimensions: {}\n'
           'Batch size: {}'.format(trainfile, testfile, epochs, maxlen,
                                   vocab_dim, batch_size))
+    print("=======================================")
 
     sents_train, truths_train, unique_words_train, unique_tags_train = \
         P.retrieve_sentences_tags(trainfile)
@@ -71,7 +83,8 @@ def run_training(trainfile, testfile, epochs,
 
     alltags = unique_tags_train.union(unique_tags_test)
     uniqueWords = unique_words_train.union(unique_word_test)
-    gsm_mod = gensim.models.Word2Vec(sentences=sents_train + sents_test, size=vocab_dim, window=5, min_count=1,
+    gsm_mod = gensim.models.Word2Vec(sentences=sents_train + sents_test,
+                                     size=vocab_dim, window=5, min_count=1,
                                      workers=4)
     gsm_mod.init_sims(replace=True)
     # saves ram when model is finished loading
@@ -117,6 +130,7 @@ def run_training(trainfile, testfile, epochs,
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
     print('Train...')
+    #TODO: rewrite the training function to use correct losses during training
     model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=epochs,
               validation_data=(X_test, Y_test_cat))
     score, acc = model.evaluate(X_test, Y_test_cat,
@@ -124,8 +138,8 @@ def run_training(trainfile, testfile, epochs,
 
     Y_hypo = model.predict_classes(X_test, batch_size=1)
     correct, incorrect = custom_accuracy(y_true=Y_test, y_pred=Y_hypo)
-    print(
-    "Correct: {}\nIncorrect: {}\n Accuracy: {}".format(correct, incorrect, float(correct) / (correct + incorrect)))
+    print("Correct: {}\nIncorrect: {}\n Accuracy: {}"
+          .format(correct, incorrect, float(correct) / (correct + incorrect)))
     print('Test score:', score)
     print('Test accuracy:', acc)
 
