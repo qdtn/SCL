@@ -9,6 +9,7 @@ def genia_split(line, secondTag=False):
     In genia corpus, some words have two tags associated like so:
     'acetyl/JJ|NN'. The default option is to take the first tag,
     To take the second tag, set argument to True
+    :param secondTag:
     :param line:
     :return:
     """
@@ -99,32 +100,42 @@ def process_conll_dataset(infile, outfile='data/conll_processed.txt'):
     return
 
 
-def retrieve_sentences_tags(infile):
+def retrieve_sentences_tags(infile, maxlen=1000, allowedtags=[]):
     """
     Loads files processed according to the formats in other
     functions of this file into variables
-    :param infile:
+    :param maxlen: discard sentences longer than this
+    :param allowedtags: discard sentences containing tags not in this list.
+    leave empty if any tags are allowed. this ensures the validation/test set
+    will only use sentences containing same tags as training set
+    :param infile: file to process
     :return: sentences, tags corresponding to each word in each sentence,
     set of unique words used contained in dataset, and set of unique tags
     contained in dataset
     """
+    all_tags_allowed = True if len(allowedtags) == 0 else False
     sents = []
     truths = []
     words = set([])
     tags = set([])
+    discard = False
     with open(infile, 'r') as f:
         new_sentence = []
         new_tags = []
         for n, line in enumerate(f):
             splits = line.split('\t')
             if not splits[0].isdigit():
-                sents.append(new_sentence)
-                truths.append(new_tags)
+                if len(new_sentence) <= maxlen and not discard:
+                    sents.append(new_sentence)
+                    truths.append(new_tags)
                 new_sentence = []
                 new_tags = []
+                discard = False
                 continue
             splits = line.split('\t')
             tag = splits[2]
+            if (not all_tags_allowed) and (tag not in allowedtags):
+                discard = True
             word_lower = splits[1].lower()
             tags.add(tag)
             new_tags.append(tag)

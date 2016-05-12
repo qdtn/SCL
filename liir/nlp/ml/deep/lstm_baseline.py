@@ -1,8 +1,6 @@
 import socket
-
+import sys
 if socket.gethostname() == 'bilbo':
-    import sys
-
     sys.path.remove('/usr/lib/python2.7/dist-packages')
     sys.path.append('/usr/lib/python2.7/dist-packages')
 import gensim
@@ -77,9 +75,9 @@ def run_training(trainfile, testfile, epochs,
     print("=======================================")
 
     sents_train, truths_train, unique_words_train, unique_tags_train = \
-        P.retrieve_sentences_tags(trainfile)
+        P.retrieve_sentences_tags(trainfile, maxlen=maxlen)
     sents_test, truths_test, unique_word_test, unique_tags_test = \
-        P.retrieve_sentences_tags(testfile)
+        P.retrieve_sentences_tags(testfile, maxlen=maxlen, allowedtags=unique_tags_train)
 
     alltags = unique_tags_train.union(unique_tags_test)
     uniqueWords = unique_words_train.union(unique_word_test)
@@ -104,6 +102,13 @@ def run_training(trainfile, testfile, epochs,
     X_test, Y_test = create_input_data(sents_test, truths_test, index_dict,
                                        tagDict, maxlen=maxlen)
 
+    # uncomment 4 lines below to take a random subset of validation data
+    # subset_size = 10000
+    # randIndices = np.random.choice(len(sents_test), size=subset_size)
+    # X_test = np.array([X_test[n] for n in randIndices])
+    # Y_test = np.array([Y_test[n] for n in randIndices])
+
+    # makes output classes binary vectors instead of class numbers
     Y_train = np.array([to_categorical(y, nb_classes=nb_classes + 1) for y in Y_train])
     Y_test_cat = np.array([to_categorical(y, nb_classes=nb_classes + 1) for y in Y_test])
 
@@ -117,7 +122,7 @@ def run_training(trainfile, testfile, epochs,
 
     # assemble the model
     model = Sequential()  # or Graph or whatever
-    model.add(Embedding(output_dim=vocab_dim, input_dim=n_symbols, mask_zero=True,
+    model.add(Embedding(output_dim=vocab_dim, input_dim=n_symbols, mask_zero=False,
                         weights=[embedding_weights]))  # note you have to put embedding weights in a list by convention
     model.add(LSTM(128, return_sequences=True))
     model.add(Dropout(0.5))
@@ -150,12 +155,12 @@ if __name__ == "__main__":
     TESTFILE = './data/conll_evaluation_ood_processed.txt'
     EPOCHS = 10
     try:
-        TESTFILE = sys.argv[1]
+        EPOCHS = int(sys.argv[1])
     except IndexError:
         pass
 
     try:
-        EPOCHS = int(sys.argv[2])
+        TESTFILE = sys.argv[2]
     except IndexError:
         pass
 
