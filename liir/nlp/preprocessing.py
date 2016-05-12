@@ -129,7 +129,7 @@ def retrieve_sentences_tags(infile, maxlen=1000, allowedtags=[]):
                     sents.append(new_sentence)
                     truths.append(new_tags)
                     for w in new_sentence:
-                        words.append(w)
+                        words.add(w)
                     for t in new_tags:
                         tags.add(t)
                 new_sentence = []
