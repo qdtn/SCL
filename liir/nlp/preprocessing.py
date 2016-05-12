@@ -7,9 +7,8 @@ in training and evaluations we can easily switch between them
 def genia_split(line, secondTag=False):
     """
     In genia corpus, some words have two tags associated like so:
-    Some words have two tag associated, currently we take
-    the first tag. To take the second tag, uncomment  the
-    line indicated below
+    'acetyl/JJ|NN'. The default option is to take the first tag,
+    To take the second tag, set argument to True
     :param line:
     :return:
     """
@@ -31,7 +30,8 @@ def genia_split(line, secondTag=False):
 
 def process_genia_dataset(infile, outfile='data/genia_processed.txt'):
     """
-    processes
+    Processes genia dataset. Outputs a file with 3 columns:
+    nth word in sentece, word, POS tag
     :param infile:
     :param outfile:
     :return:
@@ -54,6 +54,41 @@ def process_genia_dataset(infile, outfile='data/genia_processed.txt'):
                 continue
             new_sentence.append(word)
             new_tags.append(tag)
+    f = open(outfile, 'w')
+    for m, sent in enumerate(sentences):
+        tags = alltags[m]
+        for n, word in enumerate(sent):
+            f.write('{}\t{}\t{}\n'.format(n + 1, word, tags[n]))
+        f.write('\n')
+    f.close()
+    return
+
+
+def process_conll_dataset(infile, outfile='data/conll_processed.txt'):
+    """
+    Processes conll dataset. Outputs a file with 3 columns:
+    nth word in sentece, word, POS tag
+    :param infile:
+    :param outfile:
+    :return:
+    """
+    sentences = []
+    alltags = []
+    with open(infile, 'r') as f:
+        new_sentence = []
+        new_tags = []
+        for line in f:
+            splits = line.split('\t')
+            if not splits[0].isdigit():
+                sentences.append(new_sentence)
+                alltags.append(new_tags)
+                new_sentence = []
+                new_tags = []
+                continue
+            tag = splits[4]
+            word = splits[1]
+            new_tags.append(tag)
+            new_sentence.append(word)
     f = open(outfile, 'w')
     for m, sent in enumerate(sentences):
         tags = alltags[m]
