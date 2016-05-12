@@ -97,3 +97,37 @@ def process_conll_dataset(infile, outfile='data/conll_processed.txt'):
         f.write('\n')
     f.close()
     return
+
+
+def retrieve_sentences_tags(infile):
+    """
+    Loads files processed according to the formats in other
+    functions of this file into variables
+    :param infile:
+    :return: sentences, tags corresponding to each word in each sentence,
+    set of unique words used contained in dataset, and set of unique tags
+    contained in dataset
+    """
+    sents = []
+    truths = []
+    words = set([])
+    tags = set([])
+    with open(infile, 'r') as f:
+        new_sentence = []
+        new_tags = []
+        for n, line in enumerate(f):
+            splits = line.split('\t')
+            if not splits[0].isdigit():
+                sents.append(new_sentence)
+                truths.append(new_tags)
+                new_sentence = []
+                new_tags = []
+                continue
+            splits = line.split('\t')
+            tag = splits[2]
+            word_lower = splits[1].lower()
+            tags.add(tag)
+            new_tags.append(tag)
+            words.add(word_lower)
+            new_sentence.append(word_lower)
+    return sents, truths, words, tags
