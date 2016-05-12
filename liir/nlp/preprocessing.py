@@ -128,6 +128,10 @@ def retrieve_sentences_tags(infile, maxlen=1000, allowedtags=[]):
                 if len(new_sentence) <= maxlen and not discard:
                     sents.append(new_sentence)
                     truths.append(new_tags)
+                    for w in new_sentence:
+                        words.append(w)
+                    for t in new_tags:
+                        tags.add(t)
                 new_sentence = []
                 new_tags = []
                 discard = False
@@ -137,8 +141,6 @@ def retrieve_sentences_tags(infile, maxlen=1000, allowedtags=[]):
             if (not all_tags_allowed) and (tag not in allowedtags):
                 discard = True
             word_lower = splits[1].lower()
-            tags.add(tag)
             new_tags.append(tag)
-            words.add(word_lower)
             new_sentence.append(word_lower)
     return sents, truths, words, tags
