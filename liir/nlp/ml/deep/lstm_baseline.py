@@ -1,8 +1,12 @@
 import socket
 import sys
+
 if socket.gethostname() == 'bilbo':
     sys.path.remove('/usr/lib/python2.7/dist-packages')
     sys.path.append('/usr/lib/python2.7/dist-packages')
+elif socket.gethostname() == 'tedz-hp':
+    sys.path.append('/home/tedz/Desktop/research/SCL')
+
 import gensim
 import numpy as np
 from keras.preprocessing import sequence
@@ -64,7 +68,7 @@ def custom_accuracy(y_true, y_pred):
 
 def run_training(trainfile, testfile, epochs,
                  maxlen=100,
-                 vocab_dim=10,
+                 vocab_dim=200,
                  batch_size=32):
 
     print("============Training Params============")
@@ -84,6 +88,8 @@ def run_training(trainfile, testfile, epochs,
     gsm_mod = gensim.models.Word2Vec(sentences=sents_train + sents_test,
                                      size=vocab_dim, window=5, min_count=1,
                                      workers=4)
+
+    # gsm_mod.save_word2vec_format('./data/testsave.txt')
     gsm_mod.init_sims(replace=True)
     # saves ram when model is finished loading
 
