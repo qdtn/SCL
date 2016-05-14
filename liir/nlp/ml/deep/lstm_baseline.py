@@ -16,6 +16,7 @@ from keras.layers.core import Dense, Dropout, Activation
 from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import LSTM
 from keras.layers import TimeDistributed
+from keras.callbacks import ModelCheckpoint
 import liir.nlp.preprocessing as P
 
 
@@ -70,7 +71,6 @@ def run_training(trainfile, testfile, epochs,
                  maxlen=100,
                  vocab_dim=200,
                  batch_size=32):
-
     print("============Training Params============")
     print('Training file: {}\nTesting file: {}\nEpochs: {}\n'
           'Max length of sentence: {}\nWord embedding dimensions: {}\n'
@@ -94,8 +94,9 @@ def run_training(trainfile, testfile, epochs,
     # saves ram when model is finished loading
 
     # uncommen following lines to load pretrained file
-    # load_file = './data/word2vec_with_genia.sparse.txt'
+    # load_file = './data/word2vec_with_genia_sparse.txt'
     # gsm_mod = gensim.models.Word2Vec.load_word2vec_format(load_file)
+    # vocab_dim = len(gsm_mod['word'])
 
     tagDict = {}
     for n, t in enumerate(alltags):
@@ -144,13 +145,19 @@ def run_training(trainfile, testfile, epochs,
     model.compile(optimizer='rmsprop',
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
+
+    tmpweights = "tmp/weights.hdf5"
+    checkpointer = ModelCheckpoint(filepath=tmpweights, verbose=1, save_best_only=True)
+
     print('Train...')
-    #TODO: rewrite the training function to use correct losses during training
+    # TODO: rewrite the training function to use correct losses during training
     model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=epochs,
-              validation_data=(X_test, Y_test_cat))
+              validation_data=(X_test, Y_test_cat), callbacks=[checkpointer])
     score, acc = model.evaluate(X_test, Y_test_cat,
                                 batch_size=batch_size)
 
+    model.load_weights(tmpweights)
+    # evaluate on model's best weights
     Y_hypo = model.predict_classes(X_test, batch_size=1)
     correct, incorrect = custom_accuracy(y_true=Y_test, y_pred=Y_hypo)
     print("Correct: {}\nIncorrect: {}\n Accuracy: {}"
@@ -162,15 +169,15 @@ def run_training(trainfile, testfile, epochs,
 if __name__ == "__main__":
 
     TRAINFILE = './data/conll_train_full_processed.txt'
-    TESTFILE = './data/conll_evaluation_ood_processed.txt'
     EPOCHS = 10
-    try:
-        EPOCHS = int(sys.argv[1])
-    except IndexError:
-        pass
 
     try:
-        TESTFILE = sys.argv[2]
+        TESTFILE = sys.argv[1]
+    except IndexError as e:
+        print("Must specify file to test")
+        raise e
+    try:
+        EPOCHS = int(sys.argv[2])
     except IndexError:
         pass
 
