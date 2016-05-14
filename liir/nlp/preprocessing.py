@@ -25,6 +25,9 @@ def genia_split(line, secondTag=False):
         if line[n] == '/':
             tag = line[n + 1:idx1] if tag is None else tag
             word = line[0:n]
+            word = word.replace(' ', '_space_')
+            # there are spaces in the corpus, which messes up some
+            # other parsing and processing models downstream
             return word, tag
     return None, None
 
