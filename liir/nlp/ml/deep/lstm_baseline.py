@@ -89,9 +89,13 @@ def run_training(trainfile, testfile, epochs,
                                      size=vocab_dim, window=5, min_count=1,
                                      workers=4)
 
-    # gsm_mod.save_word2vec_format('./data/testsave.txt')
+    gsm_mod.save_word2vec_format('./data/testsave.txt')
     gsm_mod.init_sims(replace=True)
     # saves ram when model is finished loading
+
+    # uncommen following lines to load pretrained file
+    # load_file = './data/word2vec_with_genia.sparse.txt'
+    # gsm_mod = gensim.models.Word2Vec.load_word2vec_format(load_file)
 
     tagDict = {}
     for n, t in enumerate(alltags):
