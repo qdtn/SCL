@@ -142,11 +142,15 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     class LossHistory(Callback):
         def on_train_begin(self, logs={}):
             self.losses = []
-            self.accuracy = []
+            self.acc = []
+            self.val_losses = []
+            self.val_acc = []
 
         def on_batch_end(self, batch, logs={}):
             self.losses.append(logs.get('loss'))
-            self.accuracy.append(logs.get('accuracy'))
+            self.acc.append(logs.get('acc'))
+            self.val_losses.append(logs.get('val_loss'))
+            self.val_acc.append(logs.get('val_acc'))
 
     print('============Training Params============\n'
           'Training file: {}\nTesting file: {}\nEpochs: {}\n'
@@ -173,7 +177,9 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     print('Test score:', score)
     print('Test accuracy:', acc)
     print('Losses: {}'.format(history.losses))
-    print('Accuracy: {}'.format(history.accuracy))
+    print('Acc: {}'.format(history.acc))
+    print('Val Losses: {}'.format(history.val_losses))
+    print('Val Acc: {}'.format(history.val_acc))
 
 if __name__ == "__main__":
 
