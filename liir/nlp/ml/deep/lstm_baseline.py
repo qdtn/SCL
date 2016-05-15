@@ -1,5 +1,6 @@
 import socket
 import sys
+import os
 
 if socket.gethostname() == 'bilbo':
     sys.path.remove('/usr/lib/python2.7/dist-packages')
@@ -129,7 +130,14 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
 
-    tmpweights = "tmp/weights.hdf5"
+    keep_iterating = True
+    count = 0
+    while keep_iterating:
+        count += 1
+        tmpweights = "tmp/weights{}.hdf5".format(count)
+        if os.path.isfile(tmpweights):
+            keep_iterating = False
+
     checkpointer = ModelCheckpoint(filepath=tmpweights, verbose=1, save_best_only=True)
 
     print('============Training Params============\n'
