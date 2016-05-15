@@ -176,10 +176,15 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
           .format(correct, incorrect, float(correct) / (correct + incorrect)))
     print('Test score:', score)
     print('Test accuracy:', acc)
-    print('Losses: {}'.format(history.losses))
-    print('Acc: {}'.format(history.acc))
-    print('Val Losses: {}'.format(history.val_losses))
-    print('Val Acc: {}'.format(history.val_acc))
+
+    log = '{}/tmp/log_{}.txt'.format(cwd, count)
+    f = open(log, 'w')
+    f.write('Losses: {}\n'.format(history.losses))
+    f.write('Acc: {}\n'.format(history.acc))
+    f.write('Val Losses: {}\n'.format(history.val_losses))
+    f.write('Val Acc: {}\n'.format(history.val_acc))
+    f.close()
+    print('Log saved as {}'.format(log))
 
 if __name__ == "__main__":
 
