@@ -161,7 +161,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
     print('Train...')
     # TODO: rewrite the training function to use correct losses during training
-    checkpointer = ModelCheckpoint(filepath=tmpweights, verbose=1, save_best_only=True)
+    checkpointer = ModelCheckpoint(filepath=tmpweights, monitor='val_acc', verbose=1, save_best_only=True)
     history = LossHistory()
     model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=epochs,
               validation_data=(X_test, Y_test_cat), callbacks=[checkpointer, history])
@@ -179,6 +179,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
     log = '{}/tmp/log_{}.txt'.format(cwd, count)
     f = open(log, 'w')
+    f.write('Testing file: {}\n'.format(testfile))
     f.write('Losses: {}\n'.format(history.losses))
     f.write('Acc: {}\n'.format(history.acc))
     f.write('Val Losses: {}\n'.format(history.val_losses))
@@ -189,7 +190,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 if __name__ == "__main__":
 
     TRAINFILE = './data/conll_train_full_processed.txt'
-    EPOCHS = 10
+    EPOCHS = 25
     EMBEDDINGSFILE = False
 
     try:
