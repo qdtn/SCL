@@ -161,7 +161,6 @@ if __name__ == "__main__":
     TRAINFILE = './data/conll_train_full_processed.txt'
     EPOCHS = 10
     EMBEDDINGSFILE = False
-    GPUs = ['gpu0', 'gpu1', 'gpu2', 'gpu3']
 
     try:
         TESTFILE = sys.argv[1]
@@ -177,14 +176,6 @@ if __name__ == "__main__":
 
     try:
         EPOCHS = int(sys.argv[3])
-    except IndexError:
-        pass
-
-    try:
-        gpu = sys.argv[4]
-        assert(gpu in GPUs)
-        import os
-        os.environ['THEANO_FLAGS'] = 'device={}'.format(gpu)
     except IndexError:
         pass
 
