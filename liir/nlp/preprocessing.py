@@ -147,3 +147,30 @@ def retrieve_sentences_tags(infile, maxlen=1000, allowedtags=[]):
             new_tags.append(tag)
             new_sentence.append(word_lower)
     return sents, truths, words, tags
+
+
+def sparsevec_to_binary(infile, outfile):
+    skip = True
+    allvecs = []
+    with open(infile, 'r') as f:
+        for line in f:
+            line = line.rstrip('\n')
+            splits = line.rstrip('\n').split(' ')
+            if skip:
+                h1 = splits[0]
+                h2 = splits[1]
+                skip = False
+            else:
+                word = splits[0]
+                vectors = splits[1:-1]
+                # dense to vec conversion code annoyingly puts a space after
+                # the last number on each line, creating an extra element
+                for n in range(len(vectors)):
+                    vectors[n] = '1' if vectors[n] != '0' else vectors[n]
+                allvecs.append([word] + vectors)
+
+    f = open(outfile, 'w')
+    f.write('{} {}\n'.format(h1, h2))
+    for vector in allvecs:
+        f.write(' '.join(vector) + '\n')
+    f.close()
