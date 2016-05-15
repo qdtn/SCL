@@ -174,3 +174,42 @@ def sparsevec_to_binary(infile, outfile):
     for vector in allvecs:
         f.write(' '.join(vector) + '\n')
     f.close()
+
+
+def create_input_data(data_x, data_y, x_dict, y_dict, maxlen):
+    """
+    Creates data to be fed into neural network
+    :param data_x: sentences in list form, like [['he', 'is', 'jolly'],['she',...]]
+    :param data_y: tags corresponding to data_y
+    :param x_dict: dictionary that maps words to indices (integers)
+    :param y_dict: dictionary that maps tags to indices (integers)
+    :param maxlen: maximum length of a sentence so we know how much padding to use
+    :return: x, y that can be fed to the embedding layer of an LSTM
+    """
+    from keras.preprocessing import sequence
+    import numpy as np
+    X_train = []
+    Y_train = []
+    for n, sent in enumerate(data_x):
+        input = [x_dict[word] for word in sent]
+        input = sequence.pad_sequences([input], maxlen=maxlen)
+        output = [y_dict[tag] for tag in data_y[n]]
+        output = sequence.pad_sequences([output], maxlen=maxlen)
+        X_train.append(input[0])
+        Y_train.append(output[0])
+    return np.array(X_train), np.array(Y_train)
+
+
+def train_embeddings(filename='./data/testsave.txt',
+                     files=[], maxlen=100, vocab_dim=200):
+    import gensim
+    sentences = []
+    for f in files:
+        sentence, _, _, _ = retrieve_sentences_tags(f, maxlen=maxlen)
+        sentences = sentences + sentence
+    gsm_mod = gensim.models.Word2Vec(sentences=sentences,
+                                     size=vocab_dim, window=5, min_count=1,
+                                     workers=4)
+    gsm_mod.save_word2vec_format(filename)
+    gsm_mod.init_sims(replace=True)
+    return

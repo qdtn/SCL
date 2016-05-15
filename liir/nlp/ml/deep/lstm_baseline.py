@@ -10,7 +10,6 @@ elif socket.gethostname() == 'tedz-hp':
 
 import gensim
 import numpy as np
-from keras.preprocessing import sequence
 from keras.utils.np_utils import to_categorical
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
@@ -19,28 +18,6 @@ from keras.layers.recurrent import LSTM
 from keras.layers import TimeDistributed
 from keras.callbacks import ModelCheckpoint, Callback
 import liir.nlp.preprocessing as P
-
-
-def create_input_data(data_x, data_y, x_dict, y_dict, maxlen):
-    """
-    Creates data to be fed into neural network
-    :param data_x: sentences in list form, like [['he', 'is', 'jolly'],['she',...]]
-    :param data_y: tags corresponding to data_y
-    :param x_dict: dictionary that maps words to indices (integers)
-    :param y_dict: dictionary that maps tags to indices (integers)
-    :param maxlen: maximum length of a sentence so we know how much padding to use
-    :return: x, y that can be fed to the embedding layer of an LSTM
-    """
-    X_train = []
-    Y_train = []
-    for n, sent in enumerate(data_x):
-        input = [x_dict[word] for word in sent]
-        input = sequence.pad_sequences([input], maxlen=maxlen)
-        output = [y_dict[tag] for tag in data_y[n]]
-        output = sequence.pad_sequences([output], maxlen=maxlen)
-        X_train.append(input[0])
-        Y_train.append(output[0])
-    return np.array(X_train), np.array(Y_train)
 
 
 def custom_accuracy(y_true, y_pred):
@@ -94,10 +71,10 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
     nb_classes = len(tagDict)
 
-    X_train, Y_train = create_input_data(sents_train, truths_train, index_dict,
+    X_train, Y_train = P.create_input_data(sents_train, truths_train, index_dict,
+                                           tagDict, maxlen=maxlen)
+    X_test, Y_test = P.create_input_data(sents_test, truths_test, index_dict,
                                          tagDict, maxlen=maxlen)
-    X_test, Y_test = create_input_data(sents_test, truths_test, index_dict,
-                                       tagDict, maxlen=maxlen)
 
     # uncomment 4 lines below to take a random subset of validation data
     # subset_size = 10000
@@ -179,7 +156,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
     log = '{}/tmp/log_{}.txt'.format(cwd, count)
     f = open(log, 'w')
-    f.write('Testing file: {}\n'.format(testfile))
+    f.write('Embeddings file: {}\n'.format(embeddings_file))
     f.write('Losses: {}\n'.format(history.losses))
     f.write('Acc: {}\n'.format(history.acc))
     f.write('Val Losses: {}\n'.format(history.val_losses))
