@@ -67,17 +67,11 @@ def custom_accuracy(y_true, y_pred):
     return n_correct, n_incorrect
 
 
-def run_training(trainfile, testfile, epochs,
+def run_training(trainfile, testfile, embeddings_file, epochs,
                  maxlen=100,
-                 vocab_dim=200,
                  batch_size=32):
-    print("============Training Params============")
-    print('Training file: {}\nTesting file: {}\nEpochs: {}\n'
-          'Max length of sentence: {}\nWord embedding dimensions: {}\n'
-          'Batch size: {}'.format(trainfile, testfile, epochs, maxlen,
-                                  vocab_dim, batch_size))
-    print("=======================================")
 
+    print('Loading data...')
     sents_train, truths_train, unique_words_train, unique_tags_train = \
         P.retrieve_sentences_tags(trainfile, maxlen=maxlen)
     sents_test, truths_test, unique_word_test, unique_tags_test = \
@@ -85,18 +79,9 @@ def run_training(trainfile, testfile, epochs,
 
     alltags = unique_tags_train.union(unique_tags_test)
     uniqueWords = unique_words_train.union(unique_word_test)
-    gsm_mod = gensim.models.Word2Vec(sentences=sents_train + sents_test,
-                                     size=vocab_dim, window=5, min_count=1,
-                                     workers=4)
 
-    gsm_mod.save_word2vec_format('./data/testsave.txt')
-    gsm_mod.init_sims(replace=True)
-    # saves ram when model is finished loading
-
-    # uncommen following lines to load pretrained file
-    # load_file = './data/word2vec_with_genia_sparse.txt'
-    # gsm_mod = gensim.models.Word2Vec.load_word2vec_format(load_file)
-    # vocab_dim = len(gsm_mod['word'])
+    gsm_mod = gensim.models.Word2Vec.load_word2vec_format(embeddings_file)
+    vocab_dim = len(gsm_mod['word'])
 
     tagDict = {}
     for n, t in enumerate(alltags):
@@ -140,14 +125,19 @@ def run_training(trainfile, testfile, epochs,
     model.add(TimeDistributed(Dense(nb_classes + 1)))
     model.add(Activation('softmax'))
 
-    print('Loading data...')
-
     model.compile(optimizer='rmsprop',
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
 
     tmpweights = "tmp/weights.hdf5"
     checkpointer = ModelCheckpoint(filepath=tmpweights, verbose=1, save_best_only=True)
+
+    print('============Training Params============\n'
+          'Training file: {}\nTesting file: {}\nEpochs: {}\n'
+          'Max length of sentence: {}\nWord embedding dimensions: {}\n'
+          'Batch size: {}\n'
+          '======================================='
+          .format(trainfile, testfile, epochs, maxlen, vocab_dim, batch_size))
 
     print('Train...')
     # TODO: rewrite the training function to use correct losses during training
@@ -170,15 +160,32 @@ if __name__ == "__main__":
 
     TRAINFILE = './data/conll_train_full_processed.txt'
     EPOCHS = 10
+    EMBEDDINGSFILE = False
+    GPUs = ['gpu0', 'gpu1', 'gpu2', 'gpu3']
 
     try:
         TESTFILE = sys.argv[1]
     except IndexError as e:
         print("Must specify file to test")
         raise e
+
     try:
-        EPOCHS = int(sys.argv[2])
+        EMBEDDINGSFILE = sys.argv[2]
+    except IndexError as e:
+        print("Must specify embeddings file to load")
+        raise e
+
+    try:
+        EPOCHS = int(sys.argv[3])
     except IndexError:
         pass
 
-    run_training(TRAINFILE, TESTFILE, EPOCHS)
+    try:
+        gpu = sys.argv[4]
+        assert(gpu in GPUs)
+        import os
+        os.environ['THEANO_FLAGS'] = 'device={}'.format(gpu)
+    except IndexError:
+        pass
+
+    run_training(TRAINFILE, TESTFILE, EMBEDDINGSFILE, EPOCHS)
