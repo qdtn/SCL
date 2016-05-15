@@ -17,7 +17,7 @@ from keras.layers.core import Dense, Dropout, Activation
 from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import LSTM
 from keras.layers import TimeDistributed
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, Callback
 import liir.nlp.preprocessing as P
 
 
@@ -132,13 +132,21 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
     keep_iterating = True
     count = 0
+    cwd = os.getcwd()
     while keep_iterating:
         count += 1
-        tmpweights = "tmp/weights{}.hdf5".format(count)
-        if os.path.isfile(tmpweights):
+        tmpweights = "{}/tmp/weights{}.hdf5".format(cwd, count)
+        if not os.path.isfile(tmpweights):
             keep_iterating = False
 
-    checkpointer = ModelCheckpoint(filepath=tmpweights, verbose=1, save_best_only=True)
+    class LossHistory(Callback):
+        def on_train_begin(self, logs={}):
+            self.losses = []
+            self.accuracy = []
+
+        def on_batch_end(self, batch, logs={}):
+            self.losses.append(logs.get('loss'))
+            self.accuracy.append(logs.get('accuracy'))
 
     print('============Training Params============\n'
           'Training file: {}\nTesting file: {}\nEpochs: {}\n'
@@ -149,8 +157,10 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
     print('Train...')
     # TODO: rewrite the training function to use correct losses during training
+    checkpointer = ModelCheckpoint(filepath=tmpweights, verbose=1, save_best_only=True)
+    history = LossHistory()
     model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=epochs,
-              validation_data=(X_test, Y_test_cat), callbacks=[checkpointer])
+              validation_data=(X_test, Y_test_cat), callbacks=[checkpointer, history])
     score, acc = model.evaluate(X_test, Y_test_cat,
                                 batch_size=batch_size)
 
@@ -162,7 +172,8 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
           .format(correct, incorrect, float(correct) / (correct + incorrect)))
     print('Test score:', score)
     print('Test accuracy:', acc)
-
+    print('Losses: {}'.format(history.losses))
+    print('Accuracy: {}'.format(history.accuracy))
 
 if __name__ == "__main__":
 
