@@ -1,6 +1,6 @@
+import os
 import socket
 import sys
-import os
 
 if socket.gethostname() == 'bilbo':
     sys.path.remove('/usr/lib/python2.7/dist-packages')
@@ -13,10 +13,9 @@ import numpy as np
 from keras.utils.np_utils import to_categorical
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
-from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import LSTM
 from keras.layers import TimeDistributed
-from keras.callbacks import ModelCheckpoint, Callback
+from keras.utils.generic_utils import Progbar
 import liir.nlp.preprocessing as P
 
 
@@ -28,6 +27,7 @@ def custom_accuracy(y_true, y_pred):
     :param y_pred:
     :return:
     """
+    assert len(y_true) == len(y_pred)
     n_correct = 0
     n_incorrect = 0
     length = len(y_true[0])
@@ -45,10 +45,27 @@ def custom_accuracy(y_true, y_pred):
     return n_correct, n_incorrect
 
 
+def batch(x_data, y_data, vocab_dim, embedding_weights, n=1024, shuffle=False):
+    l = len(x_data)
+    # shuffle the data
+    if shuffle:
+        randIndices = np.random.permutation(l)
+        x_data = np.array([x_data[i] for i in randIndices])
+        y_data = np.array([y_data[i] for i in randIndices])
+
+    for ndx in range(0, l, n):
+        x_data_subset = x_data[ndx:min(ndx + n, l)]
+        y_data_subset = y_data[ndx:min(ndx + n, l)]
+        x_out = np.zeros([len(x_data_subset), x_data.shape[1], vocab_dim])
+        for i, example in enumerate(x_data_subset):
+            for j, word in enumerate(example):
+                x_out[i][j] = embedding_weights[word]
+        yield x_out, y_data_subset
+
+
 def run_training(trainfile, testfile, embeddings_file, epochs,
                  maxlen=100,
-                 batch_size=32):
-
+                 batch_size=1024):
     print('Loading data...')
     sents_train, truths_train, unique_words_train, unique_tags_train = \
         P.retrieve_sentences_tags(trainfile, maxlen=maxlen)
@@ -76,17 +93,11 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     X_test, Y_test = P.create_input_data(sents_test, truths_test, index_dict,
                                          tagDict, maxlen=maxlen)
 
-    # uncomment 4 lines below to take a random subset of validation data
-    # subset_size = 10000
-    # randIndices = np.random.choice(len(sents_test), size=subset_size)
-    # X_test = np.array([X_test[n] for n in randIndices])
-    # Y_test = np.array([Y_test[n] for n in randIndices])
-
     # makes output classes binary vectors instead of class numbers
-    Y_train = np.array([to_categorical(y, nb_classes=nb_classes + 1) for y in Y_train])
+    Y_train_cat = np.array([to_categorical(y, nb_classes=nb_classes + 1) for y in Y_train])
     Y_test_cat = np.array([to_categorical(y, nb_classes=nb_classes + 1) for y in Y_test])
 
-    print(Y_train.shape)
+    print(Y_train_cat.shape)
     print(X_train.shape)
 
     n_symbols = len(uniqueWords) + 1  # adding 1 to account for 0th index (for masking)
@@ -96,9 +107,9 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
     # assemble the model
     model = Sequential()  # or Graph or whatever
-    model.add(Embedding(output_dim=vocab_dim, input_dim=n_symbols, mask_zero=False,
-                        weights=[embedding_weights]))  # note you have to put embedding weights in a list by convention
-    model.add(LSTM(128, return_sequences=True))
+    # model.add(Embedding(output_dim=vocab_dim, input_dim=n_symbols, mask_zero=False,
+    #                     weights=[embedding_weights]))  # note you have to put embedding weights in a list by convention
+    model.add(LSTM(128, return_sequences=True, input_shape=(maxlen, vocab_dim)))
     model.add(Dropout(0.5))
     model.add(TimeDistributed(Dense(nb_classes + 1)))
     model.add(Activation('softmax'))
@@ -111,23 +122,12 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     count = 0
     cwd = os.getcwd()
     while keep_iterating:
+        # making sure to not save the weights as the same name as
+        # another is using
         count += 1
         tmpweights = "{}/tmp/weights{}.hdf5".format(cwd, count)
         if not os.path.isfile(tmpweights):
             keep_iterating = False
-
-    class LossHistory(Callback):
-        def on_train_begin(self, logs={}):
-            self.losses = []
-            self.acc = []
-            self.val_losses = []
-            self.val_acc = []
-
-        def on_batch_end(self, batch, logs={}):
-            self.losses.append(logs.get('loss'))
-            self.acc.append(logs.get('acc'))
-            self.val_losses.append(logs.get('val_loss'))
-            self.val_acc.append(logs.get('val_acc'))
 
     print('============Training Params============\n'
           'Training file: {}\nTesting file: {}\nEpochs: {}\n'
@@ -137,32 +137,63 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
           .format(trainfile, testfile, epochs, maxlen, vocab_dim, batch_size))
 
     print('Train...')
-    # TODO: rewrite the training function to use correct losses during training
-    checkpointer = ModelCheckpoint(filepath=tmpweights, monitor='val_acc', verbose=1, save_best_only=True)
-    history = LossHistory()
-    model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=epochs,
-              validation_data=(X_test, Y_test_cat), callbacks=[checkpointer, history])
-    score, acc = model.evaluate(X_test, Y_test_cat,
-                                batch_size=batch_size)
+    best_yet = 0
+    for e in range(epochs):
+        print("Training epoch P{}".format(e + 1))
+        pbar = Progbar(len(X_train) / batch_size)
+        count = 0
+        for xt, yt in batch(X_train, Y_train_cat, vocab_dim, embedding_weights, n=batch_size, shuffle=True):
+            count += 1
+            model.fit(xt, yt, batch_size=batch_size, nb_epoch=1, verbose=False)
+            pbar.update(count)
+
+        # free up some space
+        xt = None
+        yt = None
+        # uncomment 4 lines below to take a random subset of validation data
+        subset_size = 1000
+        randIndices = np.random.permutation(len(sents_test))[0:subset_size]
+        X_test_subset = np.array([X_test[n] for n in randIndices])
+        Y_test_subset = np.array([Y_test[n] for n in randIndices])
+        X_test_vecs = np.zeros([X_test_subset.shape[0], X_test_subset.shape[1], vocab_dim])
+        for n, example in enumerate(X_test_subset):
+            for m, word in enumerate(example):
+                X_test_vecs[n][m] = embedding_weights[word]
+
+        print("Training finished, evaluating on {} validation samples".format(subset_size))
+        hypo = model.predict_classes(X_test_vecs, batch_size=1)
+        correct, incorrect = custom_accuracy(y_true=Y_test_subset, y_pred=hypo)
+        acc = correct / float(correct + incorrect)
+        print("Correct: {}\nIncorrect: {}\n Accuracy: {}"
+              .format(correct, incorrect, acc))
+        if acc > best_yet:
+            print('Improved from {} to {}, saving weights to {}\nEpoch {} finished.'
+                  .format(best_yet, acc, tmpweights, e + 1))
+            best_yet = acc
+            model.save_weights(tmpweights, overwrite=True)
 
     model.load_weights(tmpweights)
     # evaluate on model's best weights
-    Y_hypo = model.predict_classes(X_test, batch_size=1)
+
+    first = True
+    for xt, yt in batch(X_test, Y_test_cat, vocab_dim, embedding_weights, n=batch_size):
+        hypo = model.predict_classes(xt, batch_size=1)
+        if first:
+            Y_hypo = hypo
+            first = False
+        else:
+            Y_hypo = np.concatenate((Y_hypo, hypo))
+
     correct, incorrect = custom_accuracy(y_true=Y_test, y_pred=Y_hypo)
-    print("Correct: {}\nIncorrect: {}\n Accuracy: {}"
+    print("Finished! Final Score\nCorrect: {}\nIncorrect: {}\n Accuracy: {}"
           .format(correct, incorrect, float(correct) / (correct + incorrect)))
-    print('Test score:', score)
-    print('Test accuracy:', acc)
 
     log = '{}/tmp/log_{}.txt'.format(cwd, count)
     f = open(log, 'w')
     f.write('Embeddings file: {}\n'.format(embeddings_file))
-    f.write('Losses: {}\n'.format(history.losses))
-    f.write('Acc: {}\n'.format(history.acc))
-    f.write('Val Losses: {}\n'.format(history.val_losses))
-    f.write('Val Acc: {}\n'.format(history.val_acc))
     f.close()
     print('Log saved as {}'.format(log))
+
 
 if __name__ == "__main__":
 
