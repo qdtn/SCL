@@ -139,8 +139,8 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     print('Train...')
     best_yet = 0
     for e in range(epochs):
-        print("Training epoch P{}".format(e + 1))
-        pbar = Progbar(len(X_train) / batch_size)
+        print("Training epoch {}".format(e + 1))
+        pbar = Progbar(1 + len(X_train)/batch_size)
         count = 0
         for xt, yt in batch(X_train, Y_train_cat, vocab_dim, embedding_weights, n=batch_size, shuffle=True):
             count += 1
