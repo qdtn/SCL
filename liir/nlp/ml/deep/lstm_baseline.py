@@ -151,7 +151,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
         xt = None
         yt = None
         # uncomment 4 lines below to take a random subset of validation data
-        subset_size = 1000
+        subset_size = batch_size
         randIndices = np.random.permutation(len(sents_test))[0:subset_size]
         X_test_subset = np.array([X_test[n] for n in randIndices])
         Y_test_subset = np.array([Y_test[n] for n in randIndices])
