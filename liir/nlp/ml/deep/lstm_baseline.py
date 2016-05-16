@@ -199,7 +199,6 @@ if __name__ == "__main__":
 
     TRAINFILE = './data/conll_train_full_processed.txt'
     EPOCHS = 25
-    EMBEDDINGSFILE = False
 
     try:
         TESTFILE = sys.argv[1]
