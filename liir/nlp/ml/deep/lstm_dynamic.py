@@ -143,14 +143,15 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
     print('Train...')
     best_yet = 0
+    accs = []
     for e in range(epochs):
         print("Training epoch {}".format(e + 1))
         pbar = Progbar(1 + len(X_train)/batch_size)
-        count = 0
+        batch_count = 0
         for xt, yt in batch(X_train, Y_train_cat, n=batch_size, shuffle=True):
-            count += 1
+            batch_count += 1
             model.fit(xt, yt, batch_size=batch_size, nb_epoch=1, verbose=False)
-            pbar.update(count)
+            pbar.update(batch_count)
 
         print("Training finished, evaluating on {} validation samples".format(batch_size))
         # take a random subset of validation data
@@ -159,6 +160,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
             break
         correct, incorrect = custom_accuracy(y_true=Y_test_subset, y_pred=hypo)
         acc = correct / float(correct + incorrect)
+        accs.append(acc)
         print("Correct: {}\nIncorrect: {}\n Accuracy: {}"
               .format(correct, incorrect, acc))
         if acc > best_yet:
@@ -186,6 +188,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     log = '{}/tmp/log_{}.txt'.format(cwd, count)
     f = open(log, 'w')
     f.write('Embeddings file: {}\n'.format(embeddings_file))
+    f.write(accs)
     f.close()
     print('Log saved as {}'.format(log))
 
