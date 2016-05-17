@@ -45,7 +45,7 @@ def custom_accuracy(y_true, y_pred):
     return n_correct, n_incorrect
 
 
-def batch(x_data, y_data, n=1024, shuffle=False):
+def batch(x_data, y_data, n=64, shuffle=False):
     """
     batchify training examples, so that not all of them need to be loaded into
     memory at once
@@ -70,7 +70,7 @@ def batch(x_data, y_data, n=1024, shuffle=False):
 
 def run_training(trainfile, testfile, embeddings_file, epochs,
                  maxlen=100,
-                 batch_size=1024):
+                 batch_size=64):
     print('Loading data...')
     sents_train, truths_train, unique_words_train, unique_tags_train = \
         P.retrieve_sentences_tags(trainfile, maxlen=maxlen)
@@ -158,6 +158,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
         for X_test_subset, Y_test_subset in batch(X_test, Y_test, n=batch_size, shuffle=True):
             hypo = model.predict_classes(X_test_subset, batch_size=1)
             break
+
         correct, incorrect = custom_accuracy(y_true=Y_test_subset, y_pred=hypo)
         acc = correct / float(correct + incorrect)
         accs.append(acc)
@@ -173,7 +174,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     # evaluate on model's best weights
 
     first = True
-    for xt, yt in batch(X_test, Y_test_cat, n=batch_size):
+    for xt, yt in batch(X_test, Y_test_cat, n=1024):
         hypo = model.predict_classes(xt, batch_size=1)
         if first:
             Y_hypo = hypo
@@ -196,7 +197,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 if __name__ == "__main__":
 
     TRAINFILE = './data/conll_train_full_processed.txt'
-    EPOCHS = 25
+    EPOCHS = 50
 
     try:
         TESTFILE = sys.argv[1]
