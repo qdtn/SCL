@@ -14,7 +14,7 @@ from keras.utils.np_utils import to_categorical
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
 from keras.layers.recurrent import LSTM
-from keras.layers import TimeDistributed
+from keras.layers import TimeDistributed, Embedding
 from keras.utils.generic_utils import Progbar
 import liir.nlp.preprocessing as P
 
@@ -45,14 +45,12 @@ def custom_accuracy(y_true, y_pred):
     return n_correct, n_incorrect
 
 
-def batch(x_data, y_data, vocab_dim, embedding_weights=None, n=1024, shuffle=False):
+def batch(x_data, y_data, n=1024, shuffle=False):
     """
     batchify training examples, so that not all of them need to be loaded into
     memory at once
     :param x_data: all x data in indices
     :param y_data: tags
-    :param vocab_dim: vocabulary dimension
-    :param embedding_weights: mapping from word indices to word embeddings
     :param n: batch size
     :param shuffle: whether or not to shuffle them
     :return: word embeddings corresponding to x indices, and corresponding tags
@@ -67,11 +65,7 @@ def batch(x_data, y_data, vocab_dim, embedding_weights=None, n=1024, shuffle=Fal
     for ndx in range(0, l, n):
         x_data_subset = x_data[ndx:min(ndx + n, l)]
         y_data_subset = y_data[ndx:min(ndx + n, l)]
-        x_out = np.zeros([len(x_data_subset), x_data.shape[1], vocab_dim])
-        for i, example in enumerate(x_data_subset):
-            for j, word in enumerate(example):
-                x_out[i][j] = embedding_weights[word]
-        yield x_out, y_data_subset
+        yield x_data_subset, y_data_subset
 
 
 def run_training(trainfile, testfile, embeddings_file, epochs,
@@ -117,7 +111,9 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
         embedding_weights[index, :] = gsm_mod[word]
 
     # assemble the model
-    model = Sequential()  # or Graph or whatever
+    model = Sequential()
+    model.add(Embedding(output_dim=vocab_dim, input_dim=n_symbols, mask_zero=False,
+                        weights=[embedding_weights]))  # note you have to put embedding weights in a list by convention
     model.add(LSTM(128, return_sequences=True, input_shape=(maxlen, vocab_dim)))
     model.add(Dropout(0.5))
     model.add(TimeDistributed(Dense(nb_classes + 1)))
@@ -151,21 +147,16 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
         print("Training epoch {}".format(e + 1))
         pbar = Progbar(1 + len(X_train)/batch_size)
         count = 0
-        for xt, yt in batch(X_train, Y_train_cat, vocab_dim, embedding_weights, n=batch_size, shuffle=True):
+        for xt, yt in batch(X_train, Y_train_cat, n=batch_size, shuffle=True):
             count += 1
             model.fit(xt, yt, batch_size=batch_size, nb_epoch=1, verbose=False)
             pbar.update(count)
-
-        # free up some space
-        xt = None
-        yt = None
 
         print("Training finished, evaluating on {} validation samples".format(batch_size))
         # take a random subset of validation data
         for X_test_subset, Y_test_subset in batch(X_test, Y_test, n=batch_size, shuffle=True):
             hypo = model.predict_classes(X_test_subset, batch_size=1)
             break
-
         correct, incorrect = custom_accuracy(y_true=Y_test_subset, y_pred=hypo)
         acc = correct / float(correct + incorrect)
         print("Correct: {}\nIncorrect: {}\n Accuracy: {}"
@@ -180,7 +171,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     # evaluate on model's best weights
 
     first = True
-    for xt, yt in batch(X_test, Y_test_cat, vocab_dim, embedding_weights, n=batch_size):
+    for xt, yt in batch(X_test, Y_test_cat, n=batch_size):
         hypo = model.predict_classes(xt, batch_size=1)
         if first:
             Y_hypo = hypo
