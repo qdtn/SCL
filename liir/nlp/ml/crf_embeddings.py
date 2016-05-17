@@ -2,7 +2,6 @@ import sys
 
 import gensim
 import pycrfsuite
-from nltk.tag import CRFTagger
 
 import liir.nlp.preprocessing as P
 
@@ -13,30 +12,30 @@ class CRFModel(object):
                  feature_possible_transitions=True
                  ):
         self.classifier = None
-        self.model_path = None
+        self.model_file = None
         self.c1 = c1
         self.c2 = c2
         self.max_iterations = max_iterations
         self.feature_possible_transitions = feature_possible_transitions
 
-    def train(self, X, Y, model_path=None):
+    def train(self, X, Y, model_file=None):
         trainer = pycrfsuite.Trainer(verbose=False)
 
         for xseq, yseq in zip(X, Y):
             trainer.append(xseq, yseq)
-        if model_path is None:
-            model_path = "data/crf_embeddings.mdl"
-        trainer.train(model_path)
-        self.model_path = model_path
+        if model_file is None:
+            model_file = "data/crf_embeddings.mdl"
+        trainer.train(model_file)
+        self.model_file = model_file
         return
 
-    def set_model_path(self, model_path):
-        self.model_path = model_path
+    def set_model_file(self, model_file):
+        self.model_file = model_file
 
     def predict(self, X):
         if self.classifier is None:
             self.classifier = pycrfsuite.Tagger()
-            self.classifier.open(self.model_path)
+            self.classifier.open(self.model_file)
 
         Ypredict = []
         for xseq in X:
@@ -94,7 +93,7 @@ def run_crf(trainfile, testfile, embeddingsfile, model_file=None):
         sents_test[n] = myvec
     sents_test = convert(sents_test)
 
-    crf = CRFTagger()
+    crf = CRFModel()
     if model_file is None:
         for n, sent in enumerate(sents_train):
             # convert input vectors from words to word embeddings
