@@ -13,7 +13,7 @@ import numpy as np
 from keras.utils.np_utils import to_categorical
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
-from keras.layers.recurrent import LSTM
+from keras.layers.recurrent import LSTM, GRU
 from keras.layers import TimeDistributed
 from keras.utils.generic_utils import Progbar
 import liir.nlp.preprocessing as P

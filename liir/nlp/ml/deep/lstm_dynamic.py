@@ -13,7 +13,7 @@ import numpy as np
 from keras.utils.np_utils import to_categorical
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
-from keras.layers.recurrent import LSTM
+from keras.layers.recurrent import LSTM, GRU
 from keras.layers import TimeDistributed, Embedding
 from keras.utils.generic_utils import Progbar
 import liir.nlp.preprocessing as P
@@ -114,7 +114,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     model = Sequential()
     model.add(Embedding(output_dim=vocab_dim, input_dim=n_symbols, mask_zero=False,
                         weights=[embedding_weights]))  # note you have to put embedding weights in a list by convention
-    model.add(LSTM(128, return_sequences=True, input_shape=(maxlen, vocab_dim)))
+    model.add(GRU(128, return_sequences=True))
     model.add(Dropout(0.5))
     model.add(TimeDistributed(Dense(nb_classes + 1)))
     model.add(Activation('softmax'))
