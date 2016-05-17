@@ -155,7 +155,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
         print("Training finished, evaluating on {} validation samples".format(batch_size))
         # take a random subset of validation data
-        for X_test_subset, Y_test_subset in batch(X_test, Y_test, n=batch_size, shuffle=True):
+        for X_test_subset, Y_test_subset in batch(X_test, Y_test, n=1024, shuffle=True):
             hypo = model.predict_classes(X_test_subset, batch_size=1)
             break
 

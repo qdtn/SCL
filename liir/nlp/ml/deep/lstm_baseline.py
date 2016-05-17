@@ -152,7 +152,8 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
         print("Training epoch {}".format(e + 1))
         pbar = Progbar(1 + len(X_train)/batch_size)
         batch_count = 0
-        for xt, yt in batch(X_train, Y_train_cat, vocab_dim, embedding_weights, n=batch_size, shuffle=True):
+        for xt, yt in batch(X_train, Y_train_cat, vocab_dim,
+                            embedding_weights, n=batch_size, shuffle=True):
             batch_count += 1
             model.fit(xt, yt, batch_size=batch_size, nb_epoch=1, verbose=False)
             pbar.update(batch_count)
@@ -163,7 +164,8 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
 
         print("Training finished, evaluating on {} validation samples".format(batch_size))
         # take a random subset of validation data
-        for X_test_subset, Y_test_subset in batch(X_test, Y_test, n=batch_size, shuffle=True):
+        for X_test_subset, Y_test_subset in batch(X_test, Y_test, vocab_dim,
+                                                  embedding_weights, n=1024, shuffle=True):
             hypo = model.predict_classes(X_test_subset, batch_size=1)
             break
 
