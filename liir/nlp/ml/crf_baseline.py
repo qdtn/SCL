@@ -52,5 +52,4 @@ if __name__ == "__main__":
         print('Training fresh model')
         pass
 
-
     run_crf(TRAINFILE, TESTFILE, MODFILE)
