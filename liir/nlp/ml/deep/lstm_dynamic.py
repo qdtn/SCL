@@ -114,7 +114,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     model = Sequential()
     model.add(Embedding(output_dim=vocab_dim, input_dim=n_symbols, mask_zero=False,
                         weights=[embedding_weights]))  # note you have to put embedding weights in a list by convention
-    model.add(GRU(128, return_sequences=True))
+    model.add(LSTM(128, return_sequences=True))
     model.add(Dropout(0.5))
     model.add(TimeDistributed(Dense(nb_classes + 1)))
     model.add(Activation('softmax'))
@@ -188,7 +188,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     log = '{}/tmp/log_{}.txt'.format(cwd, count)
     f = open(log, 'w')
     f.write('Embeddings file: {}\n'.format(embeddings_file))
-    f.write(accs)
+    f.write('Accuracy for each epoch: {}\n'.format(str(accs)))
     f.close()
     print('Log saved as {}'.format(log))
 
