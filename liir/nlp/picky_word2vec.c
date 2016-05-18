@@ -25,6 +25,7 @@
 #define MAX_CODE_LENGTH 40
 
 const int vocab_hash_size = 30000000;  // Maximum 30 * 0.7 = 21M words in the vocabulary
+const int ignore_vocab_hash_size = 1000000;
 
 typedef float real;                    // Precision of float numbers
 
@@ -34,13 +35,14 @@ struct vocab_word {
   char *word, *code, codelen;
 };
 
-char train_file[MAX_STRING], output_file[MAX_STRING];
+char train_file[MAX_STRING], output_file[MAX_STRING], ignore_file[MAX_STRING];
 char save_vocab_file[MAX_STRING], read_vocab_file[MAX_STRING];
 struct vocab_word *vocab;
+struct vocab_word *ignore_vocab;
 int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
-int *vocab_hash;
-long long vocab_max_size = 1000, vocab_size = 0, layer1_size = 100;
-long long train_words = 0, word_count_actual = 0, iter = 5, file_size = 0, classes = 0;
+int *vocab_hash, *ignore_vocab_hash;
+long long vocab_max_size = 1000, vocab_size = 0, layer1_size = 100, ignore_vocab_size = 0;
+long long train_words = 0, word_count_actual = 0, iter = 5, file_size = 0, classes = 0, ignore_words = 0;
 real alpha = 0.025, starting_alpha, sample = 1e-3;
 real *syn0, *syn1, *syn1neg, *expTable;
 clock_t start;
@@ -90,12 +92,31 @@ void ReadWord(char *word, FILE *fin) {
   word[a] = 0;
 }
 
+// Returns hash value of a word in ignore list
+int GetIgnoreWordHash(char *word) {
+  unsigned long long a, hash = 0;
+  for (a = 0; a < strlen(word); a++) hash = hash * 257 + word[a];
+  hash = hash % ignore_vocab_hash_size;
+  return hash;
+}
+
 // Returns hash value of a word
 int GetWordHash(char *word) {
   unsigned long long a, hash = 0;
   for (a = 0; a < strlen(word); a++) hash = hash * 257 + word[a];
   hash = hash % vocab_hash_size;
   return hash;
+}
+
+// Searches hash for a word, returns -1 if not found
+int SearchIgnoreVocab(char *word) {
+  unsigned int hash = GetIgnoreWordHash(word);
+  while (1) {
+    if (ignore_vocab_hash[hash] == -1) return -1;
+    if (!strcmp(word, ignore_vocab[ignore_vocab_hash[hash]].word)) return ignore_vocab_hash[hash];
+    hash = (hash + 1) % ignore_vocab_hash_size;
+  }
+  return -1;
 }
 
 // Returns position of a word in the vocabulary; if the word is not found, returns -1
@@ -115,6 +136,25 @@ int ReadWordIndex(FILE *fin) {
   ReadWord(word, fin);
   if (feof(fin)) return -1;
   return SearchVocab(word);
+}
+
+// Adds a word to the ignore vocabulary
+int AddWordToIgnoreVocab(char *word) {
+  unsigned int hash, length = strlen(word) + 1;
+  if (length > MAX_STRING) length = MAX_STRING;
+  ignore_vocab[ignore_vocab_size].word = (char *)calloc(length, sizeof(char));
+  strcpy(ignore_vocab[ignore_vocab_size].word, word);
+  ignore_vocab[ignore_vocab_size].cn = 0;
+  ignore_vocab_size++;
+  // Reallocate memory if needed
+  if (ignore_vocab_size + 2 >= vocab_max_size) {
+    vocab_max_size += 1000;
+    ignore_vocab = (struct vocab_word *)realloc(ignore_vocab, vocab_max_size * sizeof(struct vocab_word));
+  }
+  hash = GetIgnoreWordHash(word);
+  while (ignore_vocab_hash[hash] != -1) hash = (hash + 1) % ignore_vocab_hash_size;
+  ignore_vocab_hash[hash] = ignore_vocab_size - 1;
+  return ignore_vocab_size - 1;
 }
 
 // Adds a word to the vocabulary
@@ -257,6 +297,34 @@ void CreateBinaryTree() {
   free(count);
   free(binary);
   free(parent_node);
+}
+
+void ReadAllIgnoreVocab() {
+  char word[MAX_STRING];
+  FILE *fin;
+  long long a, i;
+  for (a = 0; a < ignore_vocab_hash_size; a++) ignore_vocab_hash[a] = -1;
+  fin = fopen(ignore_file, "rb");
+  if (fin == NULL) {
+    printf("ERROR: Ignore data file not found!\n");
+    exit(1);
+  }
+  ignore_vocab_size = 0;
+  while (1) {
+    ReadWord(word, fin);
+    if (feof(fin)) break;
+    ignore_words++;
+    i = SearchIgnoreVocab(word);
+    if (i == -1) {
+    // Check if vocabulary already exists in hash
+      a = AddWordToIgnoreVocab(word);
+      ignore_vocab[a].cn = 1;
+    } else ignore_vocab[i].cn++;
+  }
+  printf("Ignore Vocab size: %lld\n", ignore_vocab_size);
+  printf("Words in ignore file: %lld\n", ignore_words);
+  file_size = ftell(fin);
+  fclose(fin);
 }
 
 void LearnVocabFromTrainFile() {
@@ -690,12 +758,23 @@ int main(int argc, char **argv) {
   if ((i = ArgPos((char *)"-iter", argc, argv)) > 0) iter = atoi(argv[i + 1]);
   if ((i = ArgPos((char *)"-min-count", argc, argv)) > 0) min_count = atoi(argv[i + 1]);
   if ((i = ArgPos((char *)"-classes", argc, argv)) > 0) classes = atoi(argv[i + 1]);
+  if ((i = ArgPos((char *)"-ignore", argc, argv)) > 0) strcpy(ignore_file, argv[i + 1]);
   vocab = (struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));
   vocab_hash = (int *)calloc(vocab_hash_size, sizeof(int));
+  ignore_vocab = (struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));
+  ignore_vocab_hash = (int *)calloc(ignore_vocab_hash_size, sizeof(int));
   expTable = (real *)malloc((EXP_TABLE_SIZE + 1) * sizeof(real));
   for (i = 0; i < EXP_TABLE_SIZE; i++) {
     expTable[i] = exp((i / (real)EXP_TABLE_SIZE * 2 - 1) * MAX_EXP); // Precompute the exp() table
     expTable[i] = expTable[i] / (expTable[i] + 1);                   // Precompute f(x) = x / (x + 1)
+  }
+  ReadAllIgnoreVocab();
+  char *somestr = "interleukin-2";
+  // quick verification that the ignore list is working
+  if (SearchIgnoreVocab(somestr) == -1) {
+    printf("%s not found in ignore list\n", somestr);
+  } else {
+    printf("%s found in ignore list\n", somestr);
   }
   TrainModel();
   return 0;
