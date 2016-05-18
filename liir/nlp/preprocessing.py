@@ -201,15 +201,15 @@ def create_input_data(data_x, data_y, x_dict, y_dict, maxlen):
 
 
 def train_embeddings(filename='./data/testsave.txt',
-                     files=[], maxlen=100, vocab_dim=200):
+                     files=[], vocab_dim=300):
     import gensim
     sentences = []
     for f in files:
-        sentence, _, _, _ = retrieve_sentences_tags(f, maxlen=maxlen)
+        sentence, _, _, _ = retrieve_sentences_tags(f)
         sentences = sentences + sentence
     gsm_mod = gensim.models.Word2Vec(sentences=sentences,
                                      size=vocab_dim, window=5, min_count=1,
-                                     workers=4)
+                                     workers=4, iter=10)
     gsm_mod.save_word2vec_format(filename)
     gsm_mod.init_sims(replace=True)
     return
