@@ -39,8 +39,8 @@ char train_file[MAX_STRING], output_file[MAX_STRING], ignore_file[MAX_STRING];
 char save_vocab_file[MAX_STRING], read_vocab_file[MAX_STRING];
 struct vocab_word *vocab;
 struct vocab_word *ignore_vocab;
-int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
-int *vocab_hash, *ignore_vocab_hash;
+int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 1, num_threads = 12, min_reduce = 1;
+int *vocab_hash, *ignore_vocab_hash, *ignore_array;
 long long vocab_max_size = 1000, vocab_size = 0, layer1_size = 100, ignore_vocab_size = 0;
 long long train_words = 0, word_count_actual = 0, iter = 5, file_size = 0, classes = 0, ignore_words = 0;
 real alpha = 0.025, starting_alpha, sample = 1e-3;
@@ -299,6 +299,56 @@ void CreateBinaryTree() {
   free(parent_node);
 }
 
+int* grow_ar_to(int* ar, size_t new_bytes) {
+    int* tmp = realloc(ar, new_bytes);
+    if(tmp != NULL)
+    {
+        ar = tmp;
+        return ar;
+    }
+    else
+    {
+        printf("Donno what to do here");
+        exit(1);
+    }
+}
+
+void BuildIgnoreArray() {
+  char word[MAX_STRING];
+  int somesize = 100;
+  ignore_array = malloc(sizeof(*ignore_array) * somesize);
+  FILE *fin;
+  long long i;
+  fin = fopen(ignore_file, "rb");
+  if (fin == NULL) {
+    printf("ERROR: Ignore data file not found!\n");
+    exit(1);
+  }
+
+  ignore_vocab_size = 0;
+  while (1) {
+    ReadWord(word, fin);
+    if (feof(fin)) break;
+    ignore_words++;
+    i = SearchVocab(word);
+    if (i == -1) {
+    // Check if vocabulary already exists in hash
+      printf("Something is wrong, couldn't find ignore word %s! Exit now!!\n", word);
+    } else {
+//      printf("Found the word %s!\n", word);
+      ignore_array[ignore_vocab_size] = i;
+      ignore_vocab_size++;
+      if (ignore_vocab_size >= somesize) {
+        somesize = somesize * 2;
+        ignore_array = grow_ar_to(ignore_array, sizeof(*ignore_array) * somesize);
+      }
+    }
+  }
+  printf("Ignore Vocab size: %lld\n", ignore_vocab_size);
+  file_size = ftell(fin);
+  fclose(fin);
+}
+
 void ReadAllIgnoreVocab() {
   char word[MAX_STRING];
   FILE *fin;
@@ -482,6 +532,7 @@ void *TrainModelThread(void *id) {
       continue;
     }
     word = sen[sentence_position];
+    // word is the index of a word at a certain sentence position
     if (word == -1) continue;
     for (c = 0; c < layer1_size; c++) neu1[c] = 0;
     for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
@@ -495,6 +546,8 @@ void *TrainModelThread(void *id) {
         if (c < 0) continue;
         if (c >= sentence_length) continue;
         last_word = sen[c];
+        // last_word is index of a word at position c
+        // check if the word is in our list to ignore here
         if (last_word == -1) continue;
         for (c = 0; c < layer1_size; c++) neu1[c] += syn0[c + last_word * layer1_size];
         cw++;
@@ -609,6 +662,15 @@ void *TrainModelThread(void *id) {
   pthread_exit(NULL);
 }
 
+int isvalueinarray(int val, int *arr, int size){
+    int i;
+    for (i=0; i < size; i++) {
+        if (arr[i] == val)
+            return 1;
+    }
+    return 0;
+}
+
 void TrainModel() {
   long a, b, c, d;
   FILE *fo;
@@ -616,6 +678,36 @@ void TrainModel() {
   printf("Starting training using file %s\n", train_file);
   starting_alpha = alpha;
   if (read_vocab_file[0] != 0) ReadVocab(); else LearnVocabFromTrainFile();
+  // After vocabulary has been added to a hash, we make an array containing
+  // the hash values corresponding to the words we want to throw out
+  printf("Getting ready to build ignore array!\n");
+  BuildIgnoreArray();
+  // do a dummy check here
+
+  //*
+  char word[MAX_STRING];
+  FILE *fin;
+  fin = fopen(ignore_file, "rb");
+  if (fin == NULL) {
+    printf("ERROR: Ignore data file not found!\n");
+    exit(1);
+  }
+
+  ignore_vocab_size = 0;
+  while (1) {
+    ReadWord(word, fin);
+    if (feof(fin)) break;
+    // quick verification that the ignore list is working
+    int somenum = SearchVocab(word);
+    if (isvalueinarray(somenum, ignore_array, ignore_vocab_size) == 1) {
+        printf("%s is a word we want to ignore\n", word);
+    } else {
+//        printf("%s is not a word we want to ignore\n", word);
+    }
+  }
+  //*/
+
+
   if (save_vocab_file[0] != 0) SaveVocab();
   if (output_file[0] == 0) return;
   InitNet();
@@ -767,14 +859,6 @@ int main(int argc, char **argv) {
   for (i = 0; i < EXP_TABLE_SIZE; i++) {
     expTable[i] = exp((i / (real)EXP_TABLE_SIZE * 2 - 1) * MAX_EXP); // Precompute the exp() table
     expTable[i] = expTable[i] / (expTable[i] + 1);                   // Precompute f(x) = x / (x + 1)
-  }
-  ReadAllIgnoreVocab();
-  char *somestr = "interleukin-2";
-  // quick verification that the ignore list is working
-  if (SearchIgnoreVocab(somestr) == -1) {
-    printf("%s not found in ignore list\n", somestr);
-  } else {
-    printf("%s found in ignore list\n", somestr);
   }
   TrainModel();
   return 0;
