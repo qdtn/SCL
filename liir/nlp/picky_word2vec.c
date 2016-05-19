@@ -51,6 +51,16 @@ int hs = 0, negative = 5;
 const int table_size = 1e8;
 int *table;
 
+// check if a value is in array
+int isvalueinarray(int val, int *arr, int size){
+    int i;
+    for (i=0; i < size; i++) {
+        if (arr[i] == val)
+            return 1;
+    }
+    return 0;
+}
+
 void InitUnigramTable() {
   int a, i;
   double train_words_pow = 0;
@@ -548,6 +558,9 @@ void *TrainModelThread(void *id) {
         last_word = sen[c];
         // last_word is index of a word at position c
         // check if the word is in our list to ignore here
+        if (isvalueinarray(last_word, ignore_array, ignore_vocab_size) == 1) {
+            last_word = -1;
+            }
         if (last_word == -1) continue;
         for (c = 0; c < layer1_size; c++) neu1[c] += syn0[c + last_word * layer1_size];
         cw++;
@@ -662,15 +675,6 @@ void *TrainModelThread(void *id) {
   pthread_exit(NULL);
 }
 
-int isvalueinarray(int val, int *arr, int size){
-    int i;
-    for (i=0; i < size; i++) {
-        if (arr[i] == val)
-            return 1;
-    }
-    return 0;
-}
-
 void TrainModel() {
   long a, b, c, d;
   FILE *fo;
@@ -682,9 +686,9 @@ void TrainModel() {
   // the hash values corresponding to the words we want to throw out
   printf("Getting ready to build ignore array!\n");
   BuildIgnoreArray();
-  // do a dummy check here
 
-  //*
+
+  //* dummy check that makes sure the ignore words are stored
   char word[MAX_STRING];
   FILE *fin;
   fin = fopen(ignore_file, "rb");
@@ -693,16 +697,15 @@ void TrainModel() {
     exit(1);
   }
 
-  ignore_vocab_size = 0;
   while (1) {
     ReadWord(word, fin);
     if (feof(fin)) break;
     // quick verification that the ignore list is working
     int somenum = SearchVocab(word);
     if (isvalueinarray(somenum, ignore_array, ignore_vocab_size) == 1) {
-        printf("%s is a word we want to ignore\n", word);
+//        printf("%s is a word we want to ignore\n", word);
     } else {
-//        printf("%s is not a word we want to ignore\n", word);
+        printf("Something is wrong, we cannot find the word %s to ignore\n", word);
     }
   }
   //*/
