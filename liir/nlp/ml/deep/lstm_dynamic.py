@@ -70,7 +70,7 @@ def batch(x_data, y_data, n=64, shuffle=False):
 
 def run_training(trainfile, testfile, embeddings_file, epochs,
                  maxlen=100,
-                 batch_size=64):
+                 batch_size=32):
     print('Loading data...')
     sents_train, truths_train, unique_words_train, unique_tags_train = \
         P.retrieve_sentences_tags(trainfile, maxlen=maxlen)
@@ -153,9 +153,10 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
             model.fit(xt, yt, batch_size=batch_size, nb_epoch=1, verbose=False)
             pbar.update(batch_count)
 
-        print("Training finished, evaluating on {} validation samples".format(batch_size))
+        validation_size = 1024
+        print("Training finished, evaluating on {} validation samples".format(validation_size))
         # take a random subset of validation data
-        for X_test_subset, Y_test_subset in batch(X_test, Y_test, n=1024, shuffle=True):
+        for X_test_subset, Y_test_subset in batch(X_test, Y_test, n=validation_size, shuffle=True):
             hypo = model.predict_classes(X_test_subset, batch_size=1)
             break
 
@@ -174,7 +175,7 @@ def run_training(trainfile, testfile, embeddings_file, epochs,
     # evaluate on model's best weights
 
     first = True
-    for xt, yt in batch(X_test, Y_test_cat, n=1024):
+    for xt, yt in batch(X_test, Y_test_cat, n=validation_size):
         hypo = model.predict_classes(xt, batch_size=1)
         if first:
             Y_hypo = hypo

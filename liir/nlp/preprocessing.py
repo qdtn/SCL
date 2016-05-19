@@ -201,7 +201,7 @@ def create_input_data(data_x, data_y, x_dict, y_dict, maxlen):
 
 
 def train_embeddings(filename='./data/testsave.txt',
-                     files=[], vocab_dim=300):
+                     files=[], vocab_dim=200):
     import gensim
     sentences = []
     for f in files:
