@@ -544,6 +544,10 @@ void *TrainModelThread(void *id) {
           if (c < 0) continue;
           if (c >= sentence_length) continue;
           last_word = sen[c];
+		  if (isvalueinarray(last_word, ignore_array, ignore_vocab_size) == 1) {
+            last_word = -1;
+            // ignored
+          }
           if (last_word == -1) continue;
           for (c = 0; c < layer1_size; c++) syn0[c + last_word * layer1_size] += neu1e[c];
         }
